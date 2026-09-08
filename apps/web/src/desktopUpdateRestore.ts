@@ -49,7 +49,7 @@ export function saveDesktopUpdateRestoreLocation(location: string, now = Date.no
   }
 }
 
-export function clearDesktopUpdateRestoreLocation(): void {
+function clearDesktopUpdateRestoreLocation(): void {
   try {
     removeLocalStorageItem(DESKTOP_UPDATE_RESTORE_STORAGE_KEY);
   } catch (error) {
