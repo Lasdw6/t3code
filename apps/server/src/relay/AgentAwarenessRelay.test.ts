@@ -513,6 +513,7 @@ describe.sequential("signRelayAgentActivityPublishProof", () => {
           getThreadReplayStats: () => Effect.die("unused thread replay stats"),
           dispatch: () => Effect.succeed({ sequence: 1 }),
           streamDomainEvents: Stream.fromQueue(events),
+          refresh: Effect.succeed({ loaded: 0 }),
           subscribeDomainEvents: Effect.succeed(Stream.fromQueue(events)),
           latestSequence: Effect.succeed(0),
         } satisfies OrchestrationEngineShape;
@@ -739,6 +740,7 @@ describe.sequential("signRelayAgentActivityPublishProof", () => {
             getThreadReplayStats: () => Effect.die("unused thread replay stats"),
             dispatch: () => Effect.succeed({ sequence: 1 }),
             streamDomainEvents: Stream.fromQueue(events),
+            refresh: Effect.succeed({ loaded: 0 }),
             subscribeDomainEvents: Effect.succeed(Stream.fromQueue(events)),
             latestSequence: Effect.succeed(0),
           } satisfies OrchestrationEngineShape),

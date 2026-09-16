@@ -76,6 +76,21 @@ export interface OrchestrationEngineShape {
   ) => Effect.Effect<{ sequence: number }, OrchestrationDispatchError, never>;
 
   /**
+   * Load events that another process appended to the event store.
+   *
+   * The engine normally learns about new events only through its own
+   * dispatch. An external writer (an Abra thread transfer) appends events and
+   * projection rows directly to SQLite; this folds those events into the
+   * command read model, runs the projection pipeline over them, and announces
+   * new and updated threads to live subscribers. It runs on the command worker
+   * so it never interleaves with a dispatch. The engine also polls the store
+   * head and calls this itself.
+   *
+   * @returns Effect containing how many events were loaded.
+   */
+  readonly refresh: Effect.Effect<{ loaded: number }, OrchestrationDispatchError, never>;
+
+  /**
    * Stream persisted domain events in dispatch order.
    *
    * This is a hot runtime stream (new events only), not a historical replay.

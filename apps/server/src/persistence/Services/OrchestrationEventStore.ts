@@ -93,6 +93,15 @@ export interface OrchestrationEventStoreShape {
     readonly type?: OrchestrationEvent["type"];
     readonly sequenceExclusive: number;
   }) => Effect.Effect<boolean, OrchestrationEventStoreError>;
+
+  /**
+   * The highest persisted sequence, or 0 when the store is empty.
+   *
+   * Another process (an Abra transfer, for example) can append events behind
+   * the running server's back. Comparing this with the engine's own head
+   * tells whether such events exist.
+   */
+  readonly latestSequence: Effect.Effect<number, OrchestrationEventStoreError>;
 }
 
 /**

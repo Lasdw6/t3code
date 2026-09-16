@@ -355,6 +355,7 @@ describe("OrchestrationEngine", () => {
       hasEventAfter: () => Effect.succeed(false),
       readAggregateRange: () => Stream.die("unused aggregate replay"),
       getAggregateReplayStats: () => Effect.die("unused aggregate replay stats"),
+      latestSequence: Effect.succeed(7),
     };
 
     const projectionSnapshot = {
@@ -1499,6 +1500,7 @@ describe("OrchestrationEngine", () => {
       readAll() {
         return Stream.fromIterable(events);
       },
+      latestSequence: Effect.succeed(0),
       hasEventAfter: () => Effect.succeed(false),
       readAggregateRange: () => Stream.die("unused aggregate replay"),
       getAggregateReplayStats: () => Effect.die("unused aggregate replay stats"),
@@ -1739,6 +1741,7 @@ describe("OrchestrationEngine", () => {
       readAll() {
         return Stream.fromIterable(events);
       },
+      latestSequence: Effect.succeed(0),
       hasEventAfter: () => Effect.succeed(false),
       readAggregateRange: () => Stream.die("unused aggregate replay"),
       getAggregateReplayStats: () => Effect.die("unused aggregate replay stats"),

@@ -415,6 +415,12 @@ const makeEventStore = Effect.gen(function* () {
       ),
       Effect.map((row) => ({ ...row, hasCreateEvent: row.hasCreateEvent !== 0 })),
     );
+  const latestSequence: OrchestrationEventStoreShape["latestSequence"] = sql<{
+    readonly latest: number | null;
+  }>`SELECT MAX(sequence) AS latest FROM orchestration_events`.pipe(
+    Effect.map((rows) => Number(rows[0]?.latest ?? 0)),
+    Effect.mapError(toPersistenceSqlError("OrchestrationEventStore.latestSequence:query")),
+  );
 
   return {
     append,
@@ -423,6 +429,7 @@ const makeEventStore = Effect.gen(function* () {
     getAggregateReplayStats,
     readAll: () => readFromSequence(0, Number.MAX_SAFE_INTEGER),
     hasEventAfter,
+    latestSequence,
   } satisfies OrchestrationEventStoreShape;
 });
 

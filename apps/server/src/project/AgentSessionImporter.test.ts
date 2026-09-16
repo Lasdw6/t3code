@@ -225,6 +225,7 @@ it.layer(NodeServices.layer)("AgentSessionImporter", (it) => {
           readThreadEvents: () => Stream.empty,
           getThreadReplayStats: () => Effect.die("unused"),
           streamDomainEvents: Stream.empty,
+          refresh: Effect.succeed({ loaded: 0 }),
           subscribeDomainEvents: Effect.succeed(Stream.empty),
           latestSequence: Effect.succeed(0),
         });
@@ -330,6 +331,7 @@ it.layer(NodeServices.layer)("AgentSessionImporter", (it) => {
           readThreadEvents: () => Stream.empty,
           getThreadReplayStats: () => Effect.die("unused"),
           streamDomainEvents: Stream.empty,
+          refresh: Effect.succeed({ loaded: 0 }),
           subscribeDomainEvents: Effect.succeed(Stream.empty),
           latestSequence: Effect.succeed(0),
         });
@@ -395,6 +397,7 @@ it.layer(NodeServices.layer)("AgentSessionImporter", (it) => {
           readThreadEvents: () => Stream.empty,
           getThreadReplayStats: () => Effect.die("unused"),
           streamDomainEvents: Stream.empty,
+          refresh: Effect.succeed({ loaded: 0 }),
           subscribeDomainEvents: Effect.succeed(Stream.empty),
           latestSequence: Effect.succeed(0),
         });
@@ -466,6 +469,7 @@ it.layer(NodeServices.layer)("AgentSessionImporter", (it) => {
           readThreadEvents: () => Stream.empty,
           getThreadReplayStats: () => Effect.die("unused"),
           streamDomainEvents: Stream.empty,
+          refresh: Effect.succeed({ loaded: 0 }),
           subscribeDomainEvents: Effect.succeed(Stream.empty),
           latestSequence: Effect.succeed(0),
         });
@@ -504,6 +508,7 @@ it.layer(NodeServices.layer)("AgentSessionImporter", (it) => {
           readThreadEvents: () => Stream.empty,
           getThreadReplayStats: () => Effect.die("unused"),
           streamDomainEvents: Stream.empty,
+          refresh: Effect.succeed({ loaded: 0 }),
           subscribeDomainEvents: Effect.succeed(Stream.empty),
           latestSequence: Effect.succeed(0),
         });

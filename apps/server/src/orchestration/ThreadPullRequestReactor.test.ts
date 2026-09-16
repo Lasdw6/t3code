@@ -178,6 +178,7 @@ const makeHarness = Effect.fn("makeThreadPullRequestHarness")(function* (options
         (() => Effect.succeed(options.project?.repositoryIdentity ?? project.repositoryIdentity)),
     }),
     Layer.mock(OrchestrationEngineService)({
+      refresh: Effect.succeed({ loaded: 0 }),
       subscribeDomainEvents: PubSub.subscribe(events).pipe(
         Effect.map((subscription) => Stream.fromSubscription(subscription)),
       ),

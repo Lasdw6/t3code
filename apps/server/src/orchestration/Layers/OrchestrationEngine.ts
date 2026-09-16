@@ -55,10 +55,46 @@ const isOrchestrationCommandPreviouslyRejectedError = Schema.is(
 const isOrchestrationCommandIdConflictError = Schema.is(OrchestrationCommandIdConflictError);
 
 interface CommandEnvelope {
+  kind: "command";
   command: OrchestrationCommand;
   origin: OrchestrationClientOrigin | undefined;
   result: Deferred.Deferred<{ sequence: number }, OrchestrationDispatchError>;
   startedAtMs: number;
+}
+
+interface RefreshEnvelope {
+  kind: "refresh";
+  result: Deferred.Deferred<{ loaded: number }, OrchestrationDispatchError>;
+}
+
+type WorkEnvelope = CommandEnvelope | RefreshEnvelope;
+
+/**
+ * Events a refresh announces to live subscribers. Externally appended history
+ * is already settled, so the "-requested" events that make the provider and
+ * checkpoint reactors act must stay silent. A `thread.created` is enough for
+ * the shell to refetch the thread; opening it loads the projected history.
+ */
+const REFRESH_ANNOUNCED_EVENT_TYPES: ReadonlySet<OrchestrationEvent["type"]> = new Set<
+  OrchestrationEvent["type"]
+>([
+  "project.created",
+  "thread.created",
+  "thread.meta-updated",
+  "thread.archived",
+  "thread.unarchived",
+  "thread.settled",
+  "thread.unsettled",
+  "thread.pinned",
+  "thread.unpinned",
+]);
+
+function isAnnouncedOnRefresh(event: OrchestrationEvent): boolean {
+  if (!REFRESH_ANNOUNCED_EVENT_TYPES.has(event.type)) {
+    return false;
+  }
+  // The provider reactor regenerates titles for this one; imported history must not.
+  return !(event.type === "thread.meta-updated" && event.payload.regenerateTitle === true);
 }
 
 function commandToAggregateRef(command: OrchestrationCommand): {
@@ -93,7 +129,7 @@ const makeOrchestrationEngine = Effect.gen(function* () {
   const nowIso = Effect.map(DateTime.now, DateTime.formatIso);
   let commandReadModel = createEmptyReadModel(yield* nowIso);
 
-  const commandQueue = yield* Queue.unbounded<CommandEnvelope>();
+  const commandQueue = yield* Queue.unbounded<WorkEnvelope>();
   const eventPubSub = yield* PubSub.unbounded<OrchestrationEvent>();
 
   const projectEventsOntoReadModel = (
@@ -410,14 +446,64 @@ const makeOrchestrationEngine = Effect.gen(function* () {
     );
   };
 
+  // Fold events another process appended after our head into the command read
+  // model and the projections, then announce the safe subset. Runs on the
+  // worker fiber, so it never races a dispatch.
+  const processRefresh = (envelope: RefreshEnvelope): Effect.Effect<void> =>
+    Effect.gen(function* () {
+      const fromSequence = commandReadModel.snapshotSequence;
+      const events = yield* Stream.runCollect(
+        eventStore.readFromSequence(fromSequence, Number.MAX_SAFE_INTEGER),
+      ).pipe(Effect.map((chunk): OrchestrationEvent[] => Array.from(chunk)));
+      if (events.length === 0) {
+        return { loaded: 0 };
+      }
+      let nextReadModel = commandReadModel;
+      for (const event of events) {
+        nextReadModel = yield* projectEvent(nextReadModel, event);
+        yield* projectionPipeline.projectEvent(event);
+      }
+      commandReadModel = nextReadModel;
+      for (const event of events) {
+        if (isAnnouncedOnRefresh(event)) {
+          yield* PubSub.publish(eventPubSub, event);
+        }
+      }
+      yield* Effect.logInfo("orchestration engine loaded externally appended events").pipe(
+        Effect.annotateLogs({ fromSequence, loaded: events.length }),
+      );
+      return { loaded: events.length };
+    }).pipe(
+      Effect.withSpan("orchestration.refresh"),
+      Effect.exit,
+      Effect.flatMap((exit) =>
+        Exit.isSuccess(exit)
+          ? Deferred.succeed(envelope.result, exit.value)
+          : Deferred.fail(envelope.result, Cause.squash(exit.cause) as OrchestrationDispatchError),
+      ),
+      Effect.asVoid,
+    );
+
   yield* projectionPipeline.bootstrap;
   commandReadModel = yield* projectionSnapshotQuery.getCommandReadModel();
 
-  const worker = Effect.forever(Queue.take(commandQueue).pipe(Effect.flatMap(processEnvelope)));
+  const worker = Effect.forever(
+    Queue.take(commandQueue).pipe(
+      Effect.flatMap((envelope) =>
+        envelope.kind === "refresh" ? processRefresh(envelope) : processEnvelope(envelope),
+      ),
+    ),
+  );
   yield* Effect.forkScoped(worker);
   yield* Effect.logDebug("orchestration engine started").pipe(
     Effect.annotateLogs({ sequence: commandReadModel.snapshotSequence }),
   );
+
+  const refresh: OrchestrationEngineShape["refresh"] = Effect.gen(function* () {
+    const result = yield* Deferred.make<{ loaded: number }, OrchestrationDispatchError>();
+    yield* Queue.offer(commandQueue, { kind: "refresh", result });
+    return yield* Deferred.await(result);
+  });
 
   const readEvents: OrchestrationEngineShape["readEvents"] = (fromSequenceExclusive, limit) =>
     eventStore.readFromSequence(fromSequenceExclusive, limit);
@@ -439,6 +525,7 @@ const makeOrchestrationEngine = Effect.gen(function* () {
     Effect.gen(function* () {
       const result = yield* Deferred.make<{ sequence: number }, OrchestrationDispatchError>();
       yield* Queue.offer(commandQueue, {
+        kind: "command",
         command,
         origin: options?.origin,
         result,
@@ -453,6 +540,7 @@ const makeOrchestrationEngine = Effect.gen(function* () {
     getThreadReplayStats,
     dispatch,
     subscribeDomainEvents: PubSub.subscribe(eventPubSub).pipe(Effect.map(Stream.fromSubscription)),
+    refresh,
     // Each access creates a fresh PubSub subscription so that multiple
     // consumers (wsServer, ProviderRuntimeIngestion, CheckpointReactor, etc.)
     // each independently receive all domain events.
