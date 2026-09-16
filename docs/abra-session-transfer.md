@@ -50,3 +50,10 @@ pnpm --filter t3 exec vp test run src/orchestration/Layers/OrchestrationEngine.r
 
 The test boots two engines on one SQLite file, dispatches through one, and
 checks that the other loads the thread on `refresh` and through the poll.
+
+The Abra repo's `adapters/t3code-session/test/live-dev-build.mjs` runs the
+whole path against this branch: it starts `t3 serve` on a throwaway data
+directory, imports a real thread while the server runs, and waits for the
+server to show it and accept a command on it. A refresh of a few thousand
+events takes more than ten seconds because the projection pipeline commits one
+transaction per projector per event.
